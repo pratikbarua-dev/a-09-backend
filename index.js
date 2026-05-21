@@ -80,6 +80,17 @@ const requireAuth = async (req, res, next) => {
 };
 
 // ──────────────────────────────────────────────
+// Routes — Auth / Profile
+// ──────────────────────────────────────────────
+app.get("/users/me", requireAuth, (req, res) => {
+  res.status(200).json(req.user);
+});
+
+app.get("/profile", requireAuth, (req, res) => {
+  res.status(200).json(req.user);
+});
+
+// ──────────────────────────────────────────────
 // Routes — Doctors
 // ──────────────────────────────────────────────
 app.get("/doctors", async (req, res) => {
@@ -87,7 +98,7 @@ app.get("/doctors", async (req, res) => {
   res.send(allDoctors);
 });
 
-app.get("/doctors/:id", async (req, res) => {
+app.get("/doctors/:id", requireAuth, async (req, res) => {
   const id = req.params.id;
   const doctor = await doctorsCollection.findOne({
     _id: new mongodb.ObjectId(id),
@@ -96,32 +107,38 @@ app.get("/doctors/:id", async (req, res) => {
 });
 
 // ──────────────────────────────────────────────
-// Routes — Appointments
+// Routes — Appointments (user-scoped)
 // ──────────────────────────────────────────────
-app.get("/appointments", async (req, res) => {
-  const allAppointments = await appointmentsCollection.find({}).toArray();
-  res.send(allAppointments);
+app.get("/appointments", requireAuth, async (req, res) => {
+  const userAppointments = await appointmentsCollection
+    .find({ userId: req.user.id })
+    .toArray();
+  res.send(userAppointments);
 });
 
-app.post("/appointments", async (req, res) => {
-  const appointment = req.body;
+app.post("/appointments", requireAuth, async (req, res) => {
+  const appointment = {
+    ...req.body,
+    userId: req.user.id,
+  };
   const result = await appointmentsCollection.insertOne(appointment);
   res.send(result);
 });
 
-app.delete("/appointments/:id", async (req, res) => {
+app.delete("/appointments/:id", requireAuth, async (req, res) => {
   const id = req.params.id;
   const result = await appointmentsCollection.deleteOne({
     _id: new mongodb.ObjectId(id),
+    userId: req.user.id,
   });
   res.send(result);
 });
 
-app.patch("/appointments/:id", async (req, res) => {
+app.patch("/appointments/:id", requireAuth, async (req, res) => {
   const id = req.params.id;
   const updatedData = req.body;
   const result = await appointmentsCollection.updateOne(
-    { _id: new mongodb.ObjectId(id) },
+    { _id: new mongodb.ObjectId(id), userId: req.user.id },
     { $set: updatedData }
   );
   res.send(result);
