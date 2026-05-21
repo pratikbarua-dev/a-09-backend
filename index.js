@@ -88,10 +88,10 @@ const requireAuth = async (req, res, next) => {
     console.error("[requireAuth] JWT verification error:", error.message);
 
     if (error.code === "ERR_JWT_EXPIRED") {
-      return res.status(401).json({ error: "Unauthorized: Token expired" });
+      return res.status(401).json({ error: "Unauthorized: Token expired", details: error.message });
     }
 
-    return res.status(401).json({ error: "Unauthorized: Invalid token" });
+    return res.status(401).json({ error: "Unauthorized: Invalid token", details: error.message });
   }
 };
 
