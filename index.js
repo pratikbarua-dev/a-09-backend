@@ -57,17 +57,22 @@ const JWKS = createRemoteJWKSet(new URL(`${BETTER_AUTH_URL}/api/auth/jwks`));
 
 // Reusable auth middleware — verifies JWT and attaches req.user
 const requireAuth = async (req, res, next) => {
+  console.log(`[requireAuth] Request received on ${req.method} ${req.url}`);
+  console.log(`[requireAuth] Authorization header:`, req.headers.authorization);
   try {
     // Extract token from Authorization header
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log(`[requireAuth] Missing or invalid Bearer format`);
       return res.status(401).json({ error: "Unauthorized: No token provided" });
     }
 
     const token = authHeader.substring(7);
+    console.log(`[requireAuth] Token extracted, verifying...`);
 
     // Verify JWT against Better Auth's JWKS public keys
     const { payload } = await jwtVerify(token, JWKS);
+    console.log(`[requireAuth] JWT verified successfully. User:`, payload.email);
 
     // Attach decoded user info from JWT payload to request
     req.user = {
@@ -80,7 +85,7 @@ const requireAuth = async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.error("JWT verification error:", error.message);
+    console.error("[requireAuth] JWT verification error:", error.message);
 
     if (error.code === "ERR_JWT_EXPIRED") {
       return res.status(401).json({ error: "Unauthorized: Token expired" });
@@ -121,10 +126,17 @@ app.get("/doctors/:id", requireAuth, async (req, res) => {
 // Routes — Appointments (user-scoped)
 // ──────────────────────────────────────────────
 app.get("/appointments", requireAuth, async (req, res) => {
-  const userAppointments = await appointmentsCollection
-    .find({ userId: req.user.id })
-    .toArray();
-  res.send(userAppointments);
+  console.log(`[GET /appointments] Querying appointments for userId: ${req.user.id}`);
+  try {
+    const userAppointments = await appointmentsCollection
+      .find({ userId: req.user.id })
+      .toArray();
+    console.log(`[GET /appointments] Found ${userAppointments.length} appointments for user ${req.user.email}`);
+    res.send(userAppointments);
+  } catch (err) {
+    console.error(`[GET /appointments] Error querying database:`, err.message);
+    res.status(500).json({ error: "Internal Server Error querying appointments" });
+  }
 });
 
 app.post("/appointments", requireAuth, async (req, res) => {
